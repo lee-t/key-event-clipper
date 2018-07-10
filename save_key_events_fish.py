@@ -2,7 +2,7 @@
 # python save_key_events.py --output output
 
 # import the necessary packages
-from pyimagesearch.keyclipwriter import KeyClipWriter
+from vidwriter.keyclipwriter import KeyClipWriter
 from imutils.video import VideoStream
 import argparse
 import datetime
