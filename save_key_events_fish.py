@@ -51,7 +51,9 @@ while (vs.isOpened()):
     frame = frame if args.get("video", None) is None else frame[1]
     text = "Unoccupied"
     updateConsecFrames = True
-    timestamp=datetime.timedelta(vs.get(cv2.CAP_PROP_POS_MSEC))
+    times=vs.get(cv2.CAP_PROP_POS_MSEC)
+    timestamp = datetime.datetime.utcfromtimestamp(times//1000.0)
+    currentsurface =0
 
     # if the frame could not be grabbed, then we have reached the end
     # of the video
@@ -72,42 +74,43 @@ while (vs.isOpened()):
     frameDelta = cv2.absdiff(firstFrame, gray)
     thresh = cv2.threshold(frameDelta, 25, 255, cv2.THRESH_BINARY)[1]
 
-    #get timestamp in seconds from start video
-    #timestamps = vs.get(cv2.CAP_PROP_POS_MSEC)
     # dilate the thresholded image to fill in holes, then find contours
     # on thresholded image
     thresh = cv2.dilate(thresh, None, iterations=2)
     cnts = cv2.findContours(thresh.copy(), cv2.RETR_EXTERNAL,
         cv2.CHAIN_APPROX_SIMPLE)
     cnts = cnts[0] if imutils.is_cv2() else cnts[1]
-    # loop over the contours and compute area   
-    while cnts:
-        currentsurface += cv2.contourArea(cnts)
-        cnts = cnts.h_next
+    #DEBUG count countours
+    count = len(cnts)
+    print (str(count)+" / "+ str(timestamp.strftime("%H:%M:%S")))
+    # loop ov(er the contours
+    for c in cnts:
+        # compute the area for each contour and increment surface
+        currentsurface += cv2.contourArea(c)
 
-    avg = (currentsurface*100)/surface
-    # Calculate the average of contour area on the total size
-    currentsurface = 0 
-    # Put back the current surface to 0
 
-    if avg > args["min_area"]:
+        # compute the bounding box for the contour, draw it on the frame,
+        # and update the text
+        (x, y, w, h) = cv2.boundingRect(c)
+        cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 0), 2)
+        
+    #backcontours = contours #Save contours
+    #avg = (currentsurface*100)/surface #Calculate the average of contour area on the total size
+
+    if count > 5:
         updateConsecFrames = False
         consecFrames = 0
+        currentsurface =0
         if not kcw.recording:
-            timestamp = datetime.datetime.now()
-            p = "{}/{}.avi".format(args["output"],
-                args["video"]+timestamp)
-            kcw.start(p, cv2.VideoWriter_fourcc(*args["codec"]),
-                30)
-    else:
-        continue
+            p = "{}/{}.avi".format(args["output"],args["video"] + 
+            str(timestamp.strftime("%H:%M:%S")))
+            kcw.start(p, cv2.VideoWriter_fourcc(*args["codec"]),30)
 
     # otherwise, no action has taken place in this frame, so
     # increment the number of consecutive frames that contain
     # no action
     if updateConsecFrames:
         consecFrames += 1
-
     # if we are recording and reached a threshold on consecutive
     # number of frames with no action, stop recording the clip
     if kcw.recording and consecFrames == args["buffer_size"]:
@@ -122,9 +125,7 @@ while (vs.isOpened()):
     # if the `q` key is pressed, break from the lop
     if key == ord("q"):
         break
-# if we are in the middle of recording a clip, wrap it up
-if kcw.recording:
-    kcw.finish()
+
 # cleanup the camera and close any open windows
 vs.stop() if args.get("video", None) is None else vs.release()
 cv2.destroyAllWindows()
