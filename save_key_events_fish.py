@@ -38,7 +38,7 @@ blursize=args["blur"]
 vs = cv2.VideoCapture(args["video"])
 
 # initialize the first frame in the video stream
-firstFrame = None
+averageframe = None
 currentsurface = 0
 # keep looping if video is going
 while (vs.isOpened()):
@@ -64,15 +64,20 @@ while (vs.isOpened()):
     gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
     gray = cv2.GaussianBlur(gray, (blursize, blursize), 0)
 
-    # if the first frame is None, initialize it
-    if firstFrame is None:
-        firstFrame = gray
+	# if the average frame is None, initialize it
+    if averageframe is None:
+        print("[INFO] starting background model...")
+        averageframe = gray.copy().astype("float")
         continue
-
-    # compute the absolute difference between the current frame and
-    # first frame
-    frameDelta = cv2.absdiff(firstFrame, gray)
-    thresh = cv2.threshold(frameDelta, 25, 255, cv2.THRESH_BINARY)[1]
+ 
+	# accumulate the weighted average between the current frame and
+	# previous frames, then compute the difference between the current
+	# frame and running average
+    cv2.accumulateWeighted(gray, averageframe, 0.5)
+    frameDelta = cv2.absdiff(gray, cv2.convertScaleAbs(avg))
+    thresh = cv2.threshold(frameDelta, 5, 255, cv2.THRESH_BINARY)[1]
+    #alt thresh settings
+    #thresh = cv2.threshold(frameDelta, 25, 255, cv2.THRESH_BINARY)[1]
 
     # dilate the thresholded image to fill in holes, then find contours
     # on thresholded image
